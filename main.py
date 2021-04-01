@@ -35,13 +35,27 @@ def fastFourierTransform(array, inverse=False):
 
 
 def naiveFourierTransformMatrix(matrix, inverse=False):
-    return [
-        
-    ]
+    matrix = np.array(matrix)
+    row_result = np.array([
+        naiveFourierTransform(row, inverse)
+        for row in matrix
+    ])
+    return np.array([
+        naiveFourierTransform(row_result[:, col], inverse)
+        for col in range(len(row_result[0]))
+    ]).T
 
 
 def fastFourierTransformMatrix(matrix, inverse=False):
-    pass
+    matrix = np.array(matrix)
+    row_result = np.array([
+        fastFourierTransform(row, inverse)
+        for row in matrix
+    ])
+    return np.array([
+        fastFourierTransform(row_result[:, col], inverse)
+        for col in range(len(row_result[0]))
+    ]).T
 
 # if __name__ == '__main__':
 #     pass
