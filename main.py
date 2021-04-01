@@ -2,6 +2,10 @@ import numpy as np
 import argparse
 
 
+DEFAULT_IMAGE_FILE_NAME = 'moonlanding.png'
+SUB_PROBLEM_SIZE_TRESH  = 5
+
+
 def naiveFourierTransform(array, inverse=False):
     complex_part = 2j if inverse else -2j
     divide = len(array) if inverse else 1
@@ -17,20 +21,20 @@ def _computeSum(array, exponent):
     ])
 
 
-def _fastFourierTransform(array, inverse, k):
-    complex_part = 2j if inverse else -2j
-    divide = len(array) if inverse else 1
-    if len(array) <= 5:
-        exponent = lambda m: np.exp(complex_part * np.pi * k * m / len(array))
-        return _computeSum(array, exponent)
-    return _fastFourierTransform(array[0:][::2], inverse, k) / divide + \
-           np.exp(complex_part * np.pi * k / len(array)) * _fastFourierTransform(array[1:][::2], inverse, k) / divide
+def _fastFourierTransform(array, exponent):
+    if len(array) <= SUB_PROBLEM_SIZE_TRESH:
+        return _computeSum(array, exponent(len(array)))
+        
+    return _fastFourierTransform(array[0:][::2], exponent) + \
+        exponent(len(array))(1) * _fastFourierTransform(array[1:][::2], exponent)
 
 
 def fastFourierTransform(array, inverse=False):
+    complex_part = 2j if inverse else -2j
+    divide = len(array) if inverse else 1
     return [
-        _fastFourierTransform(array, inverse, k)
-        for k, _ in enumerate(array)
+        divide * _fastFourierTransform(array, (lambda N: lambda m: np.exp(complex_part * np.pi * k * m / N)))
+        for k in range(len(array))
     ]
 
 
