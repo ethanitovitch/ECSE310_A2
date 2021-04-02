@@ -2,6 +2,8 @@ import numpy as np
 import argparse
 import time
 import matplotlib.pyplot as plt
+import cv2
+import math
 
 
 DEFAULT_MODE = 1
@@ -65,6 +67,44 @@ def fastFourierTransformMatrix(matrix, inverse=False):
         fastFourierTransform(row_result[:, col], inverse)
         for col in range(len(row_result[0]))
     ]).T
+
+def resizeToPowerOf2(imageFileName):
+    img = cv2.imread(imageFileName, cv2.IMREAD_GRAYSCALE)
+    x = img.shape[1]
+    x_log2 = math.log2(x)
+    x_floor = 2**math.floor(x_log2)
+    x_ceil = 2**math.ceil(x_log2)
+    x = x_ceil if abs(x - x_floor) > abs(x-x_ceil) else x_floor
+
+    y = img.shape[0]
+    y_log2 = math.log2(y)
+    y_floor = 2**math.floor(y_log2)
+    y_ceil = 2**math.ceil(y_log2)
+    y = y_ceil if abs(y - y_floor) > abs(y - y_ceil) else y_floor
+
+    return cv2.resize(img, (x, y), interpolation = cv2.INTER_AREA)
+
+
+def modeOne(imageFileName):
+    img = resizeToPowerOf2(imageFileName)
+    print(img.shape)
+    X = fastFourierTransformMatrix(img)
+    # cv2.imshow("FFT", X)
+    plt.imshow(X.view(np.float32))
+    # plt.imshow(np.array(X, dtype=np.float32))
+    # f, axarr = plt.colors.Nr(1,2)
+    # axarr[0].colors(img)
+    # axarr[1].colors(X)
+    # fig, ax = plt.subplots(2, 1)
+    # axarr[1,0].imshow(image_datas[2])
+    # axarr[1,1].imshow(image_datas[3])
+
+    # k = cv2.waitKey(0)
+    # if k == 27:         # wait for ESC key to exit
+    #     cv2.destroyAllWindows()
+    # elif k == ord('s'): # wait for 's' key to save and exit
+    #     cv2.imwrite(imageFileName + "transformed", X)
+    #     cv2.destroyAllWindows()
 
 
 def modeFour():
@@ -167,7 +207,7 @@ def main():
     print("Mode " + str(mode) + "\n")
 
     if (mode ==  1):
-        pass
+        modeOne(imageFileName)
     elif (mode == 4):
         modeFour()
 
