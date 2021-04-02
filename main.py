@@ -51,9 +51,7 @@ def fastFourierTransform(array, inverse=False):
     divide = N if inverse else 1
     
     factor = lambda m: np.exp(complex_part * np.pi * m / N) 
-    # factor = np.exp(complex_part * np.pi * np.arange(N) / N)
 
-    # return np.concatenate([X_even + factor[:N // 2] * X_odd, X_even + factor[N // 2:] * X_odd]) 
     return [X_even[m] + factor(m) * X_odds[m] for m in range(N//2)] + [X_even[m] - factor(m) * X_odds[m] for m in range(N//2)] 
 
 
@@ -85,7 +83,8 @@ def generateRandomSquareMatrix(dimension):
 
 def modeFour():
     EXPERIMENTS = 10
-    MAX_MATRIX_SIZE_POWER = 8 # 2^7 takes ~10s
+    MAX_MATRIX_SIZE_POWER = 6 # 2^7 takes ~10s
+    CONFIDENCE_INTERVAL = 0.97
     data = {}
 
     for i in range(MAX_MATRIX_SIZE_POWER):
@@ -100,6 +99,7 @@ def modeFour():
 
             start = time.perf_counter()
             naiveFourierTransformMatrix(random_matrix)
+            # np.fft.fft(random_matrix)
             end = time.perf_counter()
 
             data[size]["naive"].append(end - start)
@@ -129,7 +129,7 @@ def modeFour():
 
     ax.set_xlabel("Problem size")
     ax.set_ylabel("Runtime (s)")
-    ax.set_title("Runtimes by problem size for naïve and fast Fourier transform ({} experiments per problem size)".format(EXPERIMENTS))
+    ax.set_title("Runtimes by problem size for naïve and fast Fourier transform")
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
     ax.legend()
@@ -138,7 +138,7 @@ def modeFour():
     # ax.bar_label(fast_bars, padding=3)
 
     fig.tight_layout()
-
+    print("Experiments: {}\nConfidence Interval: {}%".format(EXPERIMENTS, CONFIDENCE_INTERVAL*100))
     plt.show()
 
 
@@ -147,9 +147,9 @@ def printError(message, prefix="ERROR"):
 
 
 def getParams():
-    parser = argparse.ArgumentParser(description='Use this command line tool to query a DNS server', exit_on_error=False) # if there is an error raised by this line, please consult the README.md
+    parser = argparse.ArgumentParser(exit_on_error=False) # if there is an error raised by this line, please consult the README.md
     parser.add_argument("-m", "--mode", type=int, help="mode (optional)", default=DEFAULT_MODE)
-    parser.add_argument("-i", "--image", type=str, help="image (optional) filename of the image we wish to take the DFT of", default='moonlanding.png')
+    parser.add_argument("-i", "--image", type=str, help="image (optional) filename of the image we wish to take the DFT of", default=DEFAULT_IMAGE_FILE_NAME)
     
     try:
         namespace, rest = parser.parse_known_args() # https://docs.python.org/3/library/argparse.html#argparse.ArgumentParser.parse_known_args
