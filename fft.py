@@ -22,21 +22,9 @@ def naiveFourierTransform(array, inverse=False):
     return result
 
 
-def _computeSum(array, exponent):
-    return sum([
-        x * exponent(m) for m, x in enumerate(array)
-    ])
-
-
-def _fastFourierTransform(array, exponent):
-    if len(array) <= SUB_PROBLEM_SIZE_TRESH:
-        return _computeSum(array, exponent(len(array)))
-        
-    return _fastFourierTransform(array[0:][::2], exponent) + \
-        exponent(len(array))(1) * _fastFourierTransform(array[1:][::2], exponent)
-
 def evens(array): return array[::2]
 def odds(array): return array[1::2]
+
 
 def fastFourierTransform(array, inverse=False):
     if len(array) <= SUB_PROBLEM_SIZE_TRESH:
@@ -51,10 +39,8 @@ def fastFourierTransform(array, inverse=False):
     divide = N if inverse else 1
     
     factor = lambda m: np.exp(complex_part * np.pi * m / N) 
-    # factor = np.exp(complex_part * np.pi * np.arange(N) / N)
 
-    # return np.concatenate([X_even + factor[:N // 2] * X_odd, X_even + factor[N // 2:] * X_odd]) 
-    return [X_even[m] + factor(m) * X_odds[m] for m in range(N//2)] + [X_even[m] - factor(m) * X_odds[m] for m in range(N//2)] 
+    return [divide * X_even[m] + divide * factor(m) * X_odds[m] for m in range(N//2)] + [divide * X_even[m] - divide * factor(m) * X_odds[m] for m in range(N//2)] 
 
 
 def naiveFourierTransformMatrix(matrix, inverse=False):
@@ -80,34 +66,28 @@ def fastFourierTransformMatrix(matrix, inverse=False):
         for col in range(len(row_result[0]))
     ]).T
 
-def generateRandomSquareMatrix(dimension):
-    return np.random.rand(dimension, dimension)
 
 def modeFour():
     EXPERIMENTS = 10
-    MAX_MATRIX_SIZE_POWER = 8 # 2^7 takes ~10s
+    MAX_MATRIX_SIZE_POWER = 6 # 2^7 takes ~10s
+    CONFIDENCE_INTERVAL = 0.97 # idk
     data = {}
 
     for i in range(MAX_MATRIX_SIZE_POWER):
         size = 2**i
-        data[size] = {}
-
-        data[size]["naive"] = []
-        data[size]["fast"] = []
+        data[size] = {"naive": [], "fast": []}
 
         for j in range(EXPERIMENTS):
-            random_matrix = generateRandomSquareMatrix(size)
+            random_matrix = np.random.rand(size, size)  # random size x size matrix
 
             start = time.perf_counter()
             naiveFourierTransformMatrix(random_matrix)
             end = time.perf_counter()
-
             data[size]["naive"].append(end - start)
             
             start = time.perf_counter()
             fastFourierTransformMatrix(random_matrix)
             end = time.perf_counter()
-
             data[size]["fast"].append(end - start)
 
     sorted_sizes = sorted(data.keys())
@@ -118,27 +98,30 @@ def modeFour():
     naive_stds = [np.std(data[size]["naive"]) for size in sorted_sizes]
     fast_stds = [np.std(data[size]["fast"]) for size in sorted_sizes]
 
+    print("Experiments: {}\nConfidence Interval: {}%".format(EXPERIMENTS, CONFIDENCE_INTERVAL*100))
+
     # plot
     labels = sorted_sizes
     x = np.arange(len(labels))
 
-    width = 0.35  # the width of the bars
     fig, ax = plt.subplots()
-    naive_bars = ax.bar(x - width/2, naive_means, yerr=naive_stds, width=width, label="Naïve", capsize=5)
-    fast_bars = ax.bar(x + width/2, fast_means, yerr=fast_stds, width=width, label="Fast", capsize=5)
 
+    width = 0.35  # the width of the bars
+    capsize = 5
+    naive_bars = ax.bar(x - width/2, naive_means, yerr=naive_stds, width=width, label="Naïve", capsize=capsize)
+    fast_bars = ax.bar(x + width/2, fast_means, yerr=fast_stds, width=width, label="Fast", capsize=capsize)
+
+    ax.set_title("Runtimes by problem size for naïve and fast Fourier transform")
     ax.set_xlabel("Problem size")
     ax.set_ylabel("Runtime (s)")
-    ax.set_title("Runtimes by problem size for naïve and fast Fourier transform ({} experiments per problem size)".format(EXPERIMENTS))
+    ax.legend()
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
-    ax.legend()
 
     # ax.bar_label(naive_bars, padding=3)
     # ax.bar_label(fast_bars, padding=3)
 
     fig.tight_layout()
-
     plt.show()
 
 
@@ -147,9 +130,9 @@ def printError(message, prefix="ERROR"):
 
 
 def getParams():
-    parser = argparse.ArgumentParser(description='Use this command line tool to query a DNS server', exit_on_error=False) # if there is an error raised by this line, please consult the README.md
+    parser = argparse.ArgumentParser(exit_on_error=False) # if there is an error raised by this line, please consult the README.md
     parser.add_argument("-m", "--mode", type=int, help="mode (optional)", default=DEFAULT_MODE)
-    parser.add_argument("-i", "--image", type=str, help="image (optional) filename of the image we wish to take the DFT of", default='moonlanding.png')
+    parser.add_argument("-i", "--image", type=str, help="image (optional) filename of the image we wish to take the DFT of", default=DEFAULT_IMAGE_FILE_NAME)
     
     try:
         namespace, rest = parser.parse_known_args() # https://docs.python.org/3/library/argparse.html#argparse.ArgumentParser.parse_known_args
@@ -181,11 +164,9 @@ def main():
     except IllegalArgumentError as e:
         printError(str(e))
     
+    print("Mode " + str(mode) + "\n")
 
-    x = np.random.random(1024)
-    print(np.allclose(fastFourierTransform(x), np.fft.fft(x)))
-
-    if  (mode ==  1):
+    if (mode ==  1):
         pass
     elif (mode == 4):
         modeFour()
