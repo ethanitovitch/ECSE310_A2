@@ -2,6 +2,7 @@ import numpy as np
 import argparse
 import time
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 import cv2
 import math
 
@@ -88,16 +89,27 @@ def resizeToPowerOf2(imageFileName):
 def modeOne(imageFileName):
     img = resizeToPowerOf2(imageFileName)
     print(img.shape)
-    X = fastFourierTransformMatrix(img)
+    X = np.fft.fft2(img)
     # cv2.imshow("FFT", X)
-    plt.imshow(X.view(np.float32))
+    # plt.imshow(X.view(np.float32))
     # plt.imshow(np.array(X, dtype=np.float32))
+
+
     # f, axarr = plt.colors.Nr(1,2)
     # axarr[0].colors(img)
     # axarr[1].colors(X)
-    # fig, ax = plt.subplots(2, 1)
-    # axarr[1,0].imshow(image_datas[2])
-    # axarr[1,1].imshow(image_datas[3])
+
+    fig, ax = plt.subplots(1, 2)
+    ax[0].imshow(img)
+    ax[1].imshow(np.abs(X), norm=LogNorm(vmin=5))
+
+    # plt.figure()
+    # plt.imshow(np.abs(X), norm=LogNorm(vmin=5))
+    # plt.colorbar(fig, ax=1)
+    # plt.colorbar()
+    plt.title('Fourier transform')
+    plt.show()
+    
 
     # k = cv2.waitKey(0)
     # if k == 27:         # wait for ESC key to exit
