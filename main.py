@@ -1,9 +1,13 @@
 import numpy as np
 import argparse
+import time
+import matplotlib
 
 
 DEFAULT_IMAGE_FILE_NAME = 'moonlanding.png'
 SUB_PROBLEM_SIZE_TRESH  = 5
+EXPERIMENTS = 10
+CONFIDENCE_INTERVAL = 0.97
 
 
 def naiveFourierTransform(array, inverse=False):
@@ -63,3 +67,32 @@ def fastFourierTransformMatrix(matrix, inverse=False):
 
 # if __name__ == '__main__':
 #     pass
+
+def generateRandomSquareMatrix(size):
+    return np.random.rand(size, size)
+
+def modeFour():
+    data = {}
+
+    for i in range(10):
+        size = 2**i
+        data[size] = {}
+
+        data[size]["naive"] = []
+        data[size]["fast"] = []
+
+        for j in range(EXPERIMENTS):
+            random_matrix = generate_random_square_matrix(size)
+
+            start = time.perf_counter()
+            naiveFourierTransformMatrix(random_matrix)
+            end = time.perf_counter()
+
+            data[size]["naive"].append(end - start)
+            
+            start = time.perf_counter()
+            fastFourierTransformMatrix(random_matrix)
+            end = time.perf_counter()
+
+            data[size]["fast"].append(end - start)
+
