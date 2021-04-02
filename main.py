@@ -35,14 +35,26 @@ def _fastFourierTransform(array, exponent):
     return _fastFourierTransform(array[0:][::2], exponent) + \
         exponent(len(array))(1) * _fastFourierTransform(array[1:][::2], exponent)
 
+def evens(array): return array[::2]
+def odds(array): return array[1::2]
 
 def fastFourierTransform(array, inverse=False):
+    if len(array) <= SUB_PROBLEM_SIZE_TRESH:
+        return naiveFourierTransform(array)
+
+    X_even = fastFourierTransform(evens(array), inverse)
+    X_odds = fastFourierTransform(odds(array), inverse)
+
+    N = len(array)
+
     complex_part = 2j if inverse else -2j
-    divide = len(array) if inverse else 1
-    return [
-        divide * _fastFourierTransform(array, (lambda N: lambda m: np.exp(complex_part * np.pi * k * m / N)))
-        for k in range(len(array))
-    ]
+    divide = N if inverse else 1
+    
+    factor = lambda m: np.exp(complex_part * np.pi * m / N) 
+    # factor = np.exp(complex_part * np.pi * np.arange(N) / N)
+
+    # return np.concatenate([X_even + factor[:N // 2] * X_odd, X_even + factor[N // 2:] * X_odd]) 
+    return [X_even[m] + factor(m) * X_odds[m] for m in range(N//2)] + [X_even[m] - factor(m) * X_odds[m] for m in range(N//2)] 
 
 
 def naiveFourierTransformMatrix(matrix, inverse=False):
@@ -168,6 +180,10 @@ def main():
         imageFileName = params["image"]
     except IllegalArgumentError as e:
         printError(str(e))
+    
+
+    x = np.random.random(1024)
+    print(np.allclose(fastFourierTransform(x), np.fft.fft(x)))
 
     if  (mode ==  1):
         pass
