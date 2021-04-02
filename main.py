@@ -1,13 +1,16 @@
 import numpy as np
 import argparse
+import time
+import matplotlib.pyplot as plt
+
 
 DEFAULT_MODE = 1
+DEFAULT_IMAGE_FILE_NAME = 'moonlanding.png'
+SUB_PROBLEM_SIZE_TRESH  = 5
+
 
 class IllegalArgumentError(ValueError):
     pass
-
-DEFAULT_IMAGE_FILE_NAME = 'moonlanding.png'
-SUB_PROBLEM_SIZE_TRESH  = 5
 
 
 def naiveFourierTransform(array, inverse=False):
@@ -15,7 +18,7 @@ def naiveFourierTransform(array, inverse=False):
     divide = len(array) if inverse else 1
     result = [sum([
         x * np.exp(complex_part * np.pi * k * n / len(array)) for n, x in enumerate(array)
-    ]) / divide for k, _ in enumerate(array)]
+    ]) / divide for k in range(len(array))]
     return result
 
 
@@ -65,8 +68,71 @@ def fastFourierTransformMatrix(matrix, inverse=False):
         for col in range(len(row_result[0]))
     ]).T
 
+def generateRandomSquareMatrix(dimension):
+    return np.random.rand(dimension, dimension)
+
+def modeFour():
+    EXPERIMENTS = 10
+    MAX_MATRIX_SIZE_POWER = 8 # 2^7 takes ~10s
+    data = {}
+
+    for i in range(MAX_MATRIX_SIZE_POWER):
+        size = 2**i
+        data[size] = {}
+
+        data[size]["naive"] = []
+        data[size]["fast"] = []
+
+        for j in range(EXPERIMENTS):
+            random_matrix = generateRandomSquareMatrix(size)
+
+            start = time.perf_counter()
+            naiveFourierTransformMatrix(random_matrix)
+            end = time.perf_counter()
+
+            data[size]["naive"].append(end - start)
+            
+            start = time.perf_counter()
+            fastFourierTransformMatrix(random_matrix)
+            end = time.perf_counter()
+
+            data[size]["fast"].append(end - start)
+
+    sorted_sizes = sorted(data.keys())
+
+    naive_means = [np.mean(data[size]["naive"]) for size in sorted_sizes]
+    fast_means = [np.mean(data[size]["fast"]) for size in sorted_sizes]
+
+    naive_stds = [np.std(data[size]["naive"]) for size in sorted_sizes]
+    fast_stds = [np.std(data[size]["fast"]) for size in sorted_sizes]
+
+    # plot
+    labels = sorted_sizes
+    x = np.arange(len(labels))
+
+    width = 0.35  # the width of the bars
+    fig, ax = plt.subplots()
+    naive_bars = ax.bar(x - width/2, naive_means, yerr=naive_stds, width=width, label="Naïve", capsize=5)
+    fast_bars = ax.bar(x + width/2, fast_means, yerr=fast_stds, width=width, label="Fast", capsize=5)
+
+    ax.set_xlabel("Problem size")
+    ax.set_ylabel("Runtime (s)")
+    ax.set_title("Runtimes by problem size for naïve and fast Fourier transform ({} experiments per problem size)".format(EXPERIMENTS))
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.legend()
+
+    # ax.bar_label(naive_bars, padding=3)
+    # ax.bar_label(fast_bars, padding=3)
+
+    fig.tight_layout()
+
+    plt.show()
+
+
 def printError(message, prefix="ERROR"):
     print(prefix + "\t" + message)
+
 
 def getParams():
     parser = argparse.ArgumentParser(description='Use this command line tool to query a DNS server', exit_on_error=False) # if there is an error raised by this line, please consult the README.md
@@ -103,6 +169,10 @@ def main():
     except IllegalArgumentError as e:
         printError(str(e))
 
+    if  (mode ==  1):
+        pass
+    elif (mode == 4):
+        modeFour()
 
 
 if __name__ == '__main__':
