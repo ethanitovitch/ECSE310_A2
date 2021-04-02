@@ -1,6 +1,10 @@
 import numpy as np
 import argparse
 
+DEFAULT_MODE = 1
+
+class IllegalArgumentError(ValueError):
+    pass
 
 DEFAULT_IMAGE_FILE_NAME = 'moonlanding.png'
 SUB_PROBLEM_SIZE_TRESH  = 5
@@ -61,5 +65,45 @@ def fastFourierTransformMatrix(matrix, inverse=False):
         for col in range(len(row_result[0]))
     ]).T
 
-# if __name__ == '__main__':
-#     pass
+def printError(message, prefix="ERROR"):
+    print(prefix + "\t" + message)
+
+def getParams():
+    parser = argparse.ArgumentParser(description='Use this command line tool to query a DNS server', exit_on_error=False) # if there is an error raised by this line, please consult the README.md
+    parser.add_argument("-m", "--mode", type=int, help="mode (optional)", default=DEFAULT_MODE)
+    parser.add_argument("-i", "--image", type=str, help="image (optional) filename of the image we wish to take the DFT of", default='moonlanding.png')
+    
+    try:
+        namespace, rest = parser.parse_known_args() # https://docs.python.org/3/library/argparse.html#argparse.ArgumentParser.parse_known_args
+
+        fatals = 0
+        for arg in rest:
+            raise IllegalArgumentError("Incorrect input syntax: '{}' argument is not recognized".format(arg))
+
+        params = vars(namespace)
+
+        if (params["mode"] < 1 or params["mode"] > 4):
+            raise IllegalArgumentError("Incorrect input syntax: mode must be between 1 and 4")
+        
+        params["image"] = params["image"].strip()
+        
+        return params
+
+    except argparse.ArgumentError as e:
+        raise IllegalArgumentError("Incorrect input syntax: " + str(e))
+        # assume fatal
+
+def main():
+    mode = 0
+    imageFileName = ""
+    try:
+        params = getParams()
+        mode = params["mode"]
+        imageFileName = params["image"]
+    except IllegalArgumentError as e:
+        printError(str(e))
+
+
+
+if __name__ == '__main__':
+    main()
