@@ -88,36 +88,27 @@ def resizeToPowerOf2(imageFileName):
 
 def modeOne(imageFileName):
     img = resizeToPowerOf2(imageFileName)
-    print(img.shape)
     X = np.fft.fft2(img)
-    # cv2.imshow("FFT", X)
-    # plt.imshow(X.view(np.float32))
-    # plt.imshow(np.array(X, dtype=np.float32))
-
-
-    # f, axarr = plt.colors.Nr(1,2)
-    # axarr[0].colors(img)
-    # axarr[1].colors(X)
 
     fig, ax = plt.subplots(1, 2)
-    ax[0].imshow(img)
+    ax[0].imshow(img, cmap='gray', vmin=0, vmax=255)
     ax[1].imshow(np.abs(X), norm=LogNorm(vmin=5))
-
-    # plt.figure()
-    # plt.imshow(np.abs(X), norm=LogNorm(vmin=5))
-    # plt.colorbar(fig, ax=1)
-    # plt.colorbar()
     plt.title('Fourier transform')
     plt.show()
-    
 
-    # k = cv2.waitKey(0)
-    # if k == 27:         # wait for ESC key to exit
-    #     cv2.destroyAllWindows()
-    # elif k == ord('s'): # wait for 's' key to save and exit
-    #     cv2.imwrite(imageFileName + "transformed", X)
-    #     cv2.destroyAllWindows()
 
+def modeTwo(imageFileName):
+    img = resizeToPowerOf2(imageFileName)
+    X = np.fft.fft2(img)
+    rows, cols = X.shape
+    X[int(rows*0.1):int(rows*0.9)] = 0
+    X[:,int(cols * 0.1):int(cols * 0.9)] = 0
+    X = np.fft.ifft2(X)
+    fig, ax = plt.subplots(1, 2)
+    ax[0].imshow(img, cmap='gray', vmin=0, vmax=255)
+    ax[1].imshow(np.abs(X), cmap='gray', vmin=0, vmax=255)
+    plt.title('Fourier transform')
+    plt.show()
 
 def modeFour():
     EXPERIMENTS = 10
@@ -218,9 +209,11 @@ def main():
     
     print("Mode " + str(mode) + "\n")
 
-    if (mode ==  1):
+    if mode ==  1:
         modeOne(imageFileName)
-    elif (mode == 4):
+    elif mode == 2:
+        modeTwo(imageFileName)
+    elif mode == 4:
         modeFour()
 
 
