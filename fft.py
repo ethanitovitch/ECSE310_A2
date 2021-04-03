@@ -258,11 +258,7 @@ def main():
         modeOne(imageFileName)
     elif mode == 2:
         modeTwo(imageFileName)
-<<<<<<< HEAD
-    elif mode ==3:
-=======
     elif mode == 3:
->>>>>>> master
         modeThree(imageFileName)
     elif mode == 4:
         modeFour()
