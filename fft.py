@@ -118,16 +118,6 @@ def modeTwo(imageFileName):
 
     plt.show()
 
-def display_2(im_1, title_1, im_2, title_2):
-    """
-    Displays two images side by side; typically, an image and its Fourier transform.
-    """
-    plt.figure(figsize=(12,6))                    # Rectangular blackboard
-    plt.subplot(1,2,1) ; plt.title(title_1)       # 1x2 waffle plot, 1st cell
-    plt.imshow(im_1, cmap="gray")                 # Auto-equalization
-    plt.subplot(1,2,2) ; plt.title(title_2)       # 1x2 waffle plot, 2nd cell
-    plt.imshow(im_2, cmap="gray", vmin=-7, vmax=15)  
-
 
 def saveComplexMatrixAsMinimizedTxt(fileName, array, delimiter=' '):
     """
