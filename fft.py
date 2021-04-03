@@ -9,7 +9,6 @@ import math
 
 DEFAULT_MODE = 1
 DEFAULT_IMAGE_FILE_NAME = 'moonlanding.png'
-SUB_PROBLEM_SIZE_TRESH  = 5
 
 
 class IllegalArgumentError(ValueError):
@@ -30,7 +29,8 @@ def odds(array): return array[1::2]
 
 
 def fastFourierTransform(array, inverse=False):
-    if len(array) <= SUB_PROBLEM_SIZE_TRESH:
+    sub_problem_thresh = 5
+    if len(array) <= sub_problem_thresh:
         return naiveFourierTransform(array)
 
     X_even = fastFourierTransform(evens(array), inverse)
@@ -41,7 +41,7 @@ def fastFourierTransform(array, inverse=False):
     complex_part = 2j if inverse else -2j
     divide = N if inverse else 1
     
-    factor = lambda m: np.exp(complex_part * np.pi * m / N) 
+    factor = lambda m: np.exp(complex_part * np.pi * m / N)
 
     return [divide * X_even[m] + divide * factor(m) * X_odds[m] for m in range(N//2)] + [divide * X_even[m] - divide * factor(m) * X_odds[m] for m in range(N//2)] 
 
@@ -96,24 +96,46 @@ def modeOne(imageFileName):
     ax[0].set_title('Original image')
     ax[1].set_title('Fourier transform')
     fig.colorbar(im, ax=ax)
+
     plt.show()
 
 
 def modeTwo(imageFileName):
+    mask_thresh = 0.9
     img = resizeToPowerOf2(imageFileName)
     X = np.fft.fft2(img)
     rows, cols = X.shape
-    X[int(rows*0.1):int(rows*0.9)] = 0
-    X[:,int(cols * 0.1):int(cols * 0.9)] = 0
-    X = np.fft.ifft2(X)
+    X[int(rows * (1 - mask_thresh)):int(rows * mask_thresh)] = 0
+    X[:,int(cols * (1 - mask_thresh)):int(cols * mask_thresh)] = 0
+    x = np.fft.ifft2(X)
 
     fig, ax = plt.subplots(1, 2)
     ax[0].imshow(img, cmap='gray', vmin=0, vmax=255)
-    ax[1].imshow(np.abs(X), cmap='gray', vmin=0, vmax=255)
+    ax[1].imshow(np.abs(x)), cmap='gray', vmin=0, vmax=255)
     ax[0].set_title('Original image')
     ax[1].set_title('Denoised version')
 
     plt.show()
+
+
+def modeThree(imageFileName):
+    img = resizeToPowerOf2(imageFileName)
+    X = np.fft.fft2(img)
+
+    largestFourierCoeff = np.max(np.abs(X))
+    compression_levels = np.linspace(0.0, 95.0, num=6)
+
+    fig, ax = plt.subplots(2, 3)
+
+    for i, compression_level in enumerate(compression_levels):
+        ax[0 if i < 3 else 1, i%3].set_title(str(compression_level) + "%")
+
+        mask_thresh = compression_level * largestFourierCoeff
+
+    
+
+
+
 
 def modeFour():
     EXPERIMENTS = 10
@@ -218,6 +240,8 @@ def main():
         modeOne(imageFileName)
     elif mode == 2:
         modeTwo(imageFileName)
+    elif mode ==3:
+        modeThree(imageFileName)
     elif mode == 4:
         modeFour()
 
