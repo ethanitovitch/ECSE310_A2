@@ -112,43 +112,63 @@ def modeTwo(imageFileName):
 
     fig, ax = plt.subplots(1, 2)
     ax[0].imshow(img, cmap='gray', vmin=0, vmax=255)
-    ax[1].imshow(np.abs(x)), cmap='gray', vmin=0, vmax=255)
+    ax[1].imshow(np.abs(x), cmap='gray', vmin=0, vmax=255)
     ax[0].set_title('Original image')
     ax[1].set_title('Denoised version')
 
     plt.show()
 
+def display_2(im_1, title_1, im_2, title_2):
+    """
+    Displays two images side by side; typically, an image and its Fourier transform.
+    """
+    plt.figure(figsize=(12,6))                    # Rectangular blackboard
+    plt.subplot(1,2,1) ; plt.title(title_1)       # 1x2 waffle plot, 1st cell
+    plt.imshow(im_1, cmap="gray")                 # Auto-equalization
+    plt.subplot(1,2,2) ; plt.title(title_2)       # 1x2 waffle plot, 2nd cell
+    plt.imshow(im_2, cmap="gray", vmin=-7, vmax=15)  
+
+
+def saveComplexMatrixAsMinimizedTxt(fileName, array, delimiter=' '):
+    """
+    Save complex matrix to txt file with the same formatting as np.savetxt, but with complex exponentials equal to 0 (i.e. real and imaginary part are 0) written as a simple '0' to minimize file size.
+    
+    e.g. '(0.000000000000000000e+00+0.000000000000000000e+00j)' -> '0'
+    """
+    def formatComplex(x, fmt='%.18e'): return "({}{}{}j)".format(fmt % x.real, '+' if x.imag > 0 else '', fmt % x.imag)
+    with open(fileName, 'w') as f:
+        for row in array:
+            line = delimiter.join("0" if value == 0 else formatComplex(value) for value in row)
+            f.write(line + '\n')
+
 
 def modeThree(imageFileName):
+    max_compression = 95
     img = resizeToPowerOf2(imageFileName)
     X = np.fft.fft2(img)
-    ft_values = sorted([
-        x for row in X for x in row
-    ])
-    ft_count = len(ft_values)
+    X_sorted = np.sort(np.abs(X.reshape(-1))) # flatten the fourier transform, then sort by magnitude (see https://numpy.org/doc/stable/reference/generated/numpy.absolute.html)
+    coefficient_count = len(X_sorted)
+
     fig, ax = plt.subplots(2, 3)
-    for i in range(6):
-        threshold_percent = i*19
-        threshold = ft_values[int(threshold_percent*ft_count/100)]
+    for i, compression_level in enumerate(np.linspace(0, max_compression, num=6, dtype=np.int_)):  
+        threshold = X_sorted[int(compression_level * coefficient_count / 100)]
+        mask = np.abs(X) >= threshold # matrix with the same shape as X with 1s where the magnitude of the coefficients are >= threshold and 0s elsewhere 
+        compressed_X = mask * X # mask the coefficents with magnitudes < threshold
+        
+        file_name = str(compression_level) + '%.txt'
+        saveComplexMatrixAsMinimizedTxt(file_name, compressed_X)
 
-        compressed_X = [
-            [x if x >= threshold else 0 for x in row]
-            for row in X
-        ]
-        file_name = str(threshold_percent) + '%.txt'
-        np.savetxt(file_name, compressed_X)
+        compressed_image = np.abs(np.fft.ifft2(compressed_X))
 
-        new_X = np.abs(np.fft.ifft2(compressed_X))
-
-        title = 'Original' if i == 0 else str(threshold_percent) + '%'
-        ax[i//3, i%3].imshow(new_X, cmap='gray', vmin=0, vmax=255)
+        title = 'Original' if i == 0 else str(compression_level) + '%'
+        ax[i//3, i%3].imshow(compressed_image, cmap='gray', vmin=0, vmax=255)
         ax[i//3, i%3].title.set_text(title)
 
         size = os.stat(file_name)
         print(
-            'Threshold (%): {threshold_percent} | Non-Zero Values: {values} | File Size (bytes): {size}'.format(
-                threshold_percent=threshold_percent,
-                values=(100-threshold_percent)*ft_count,
+            'Compression (%): {compression_level} | Non-Zero Values: {values} | File Size (bytes): {size}'.format(
+                compression_level=compression_level,
+                values=(100 - compression_level) * coefficient_count,
                 size=size.st_size
             )
         )
