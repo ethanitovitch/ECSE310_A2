@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import cv2
 import math
+import os
 
 
 DEFAULT_MODE = 1
@@ -110,6 +111,57 @@ def modeTwo(imageFileName):
     plt.title('Fourier transform')
     plt.show()
 
+
+def modeTwo(imageFileName):
+    img = resizeToPowerOf2(imageFileName)
+    X = np.fft.fft2(img)
+    rows, cols = X.shape
+    X[int(rows*0.1):int(rows*0.9)] = 0
+    X[:,int(cols * 0.1):int(cols * 0.9)] = 0
+    X = np.fft.ifft2(X)
+    fig, ax = plt.subplots(1, 2)
+    ax[0].imshow(img, cmap='gray', vmin=0, vmax=255)
+    ax[1].imshow(np.abs(X), cmap='gray', vmin=0, vmax=255)
+    plt.title('Fourier transform')
+    plt.show()
+
+
+def modeThree(imageFileName):
+    img = resizeToPowerOf2(imageFileName)
+    X = np.fft.fft2(img)
+    ft_values = sorted([
+        x for row in X for x in row
+    ])
+    ft_count = len(ft_values)
+    fig, ax = plt.subplots(2, 3)
+    for i in range(6):
+        threshold_percent = i*19
+        threshold = ft_values[int(threshold_percent*ft_count/100)]
+
+        compressed_X = [
+            [x if x >= threshold else 0 for x in row]
+            for row in X
+        ]
+        file_name = str(threshold_percent) + '%.txt'
+        np.savetxt(file_name, compressed_X)
+
+        new_X = np.abs(np.fft.ifft2(compressed_X))
+
+        title = 'Original' if i == 0 else str(threshold_percent) + '%'
+        ax[i//3, i%3].imshow(new_X, cmap='gray', vmin=0, vmax=255)
+        ax[i//3, i%3].title.set_text(title)
+
+        size = os.stat(file_name)
+        print(
+            'Threshold (%): {threshold_percent} | Non-Zero Values: {values} | File Size (bytes): {size}'.format(
+                threshold_percent=threshold_percent,
+                values=(100-threshold_percent)*ft_count,
+                size=size.st_size
+            )
+        )
+    plt.show()
+
+
 def modeFour():
     EXPERIMENTS = 10
     MAX_MATRIX_SIZE_POWER = 6 # 2^7 takes ~10s
@@ -213,6 +265,8 @@ def main():
         modeOne(imageFileName)
     elif mode == 2:
         modeTwo(imageFileName)
+    elif mode == 3:
+        modeThree(imageFileName)
     elif mode == 4:
         modeFour()
 
