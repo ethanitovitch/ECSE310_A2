@@ -95,7 +95,7 @@ def modeOne(imageFileName):
     im = ax[1].imshow(np.abs(X), norm=LogNorm(vmin=5))
     ax[0].set_title('Original image')
     ax[1].set_title('Fourier transform')
-    fig.colorbar(im, ax=ax, shrink=0.4)
+    fig.colorbar(im, ax=ax)
     plt.show()
 
 
@@ -106,7 +106,7 @@ def modeTwo(imageFileName):
     X[int(rows*0.1):int(rows*0.9)] = 0
     X[:,int(cols * 0.1):int(cols * 0.9)] = 0
     X = np.fft.ifft2(X)
-    
+
     fig, ax = plt.subplots(1, 2)
     ax[0].imshow(img, cmap='gray', vmin=0, vmax=255)
     ax[1].imshow(np.abs(X), cmap='gray', vmin=0, vmax=255)
