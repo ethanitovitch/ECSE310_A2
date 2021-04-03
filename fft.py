@@ -10,6 +10,7 @@ import os
 
 DEFAULT_MODE = 1
 DEFAULT_IMAGE_FILE_NAME = 'moonlanding.png'
+LOW_FREQUENCY_PROPORTION = 0.1 # the lowest 10% of frequencies are considered "low"
 
 
 class IllegalArgumentError(ValueError):
@@ -70,8 +71,8 @@ def fastFourierTransformMatrix(matrix, inverse=False):
         for col in range(len(row_result[0]))
     ]).T
 
-def resizeToPowerOf2(imageFileName):
-    img = cv2.imread(imageFileName, cv2.IMREAD_GRAYSCALE)
+def resizeToPowerOf2(image_file_name):
+    img = cv2.imread(image_file_name, cv2.IMREAD_GRAYSCALE)
     x = img.shape[1]
     x_log2 = math.log2(x)
     x_floor = 2**math.floor(x_log2)
@@ -87,8 +88,8 @@ def resizeToPowerOf2(imageFileName):
     return cv2.resize(img, (x, y), interpolation = cv2.INTER_AREA)
 
 
-def modeOne(imageFileName):
-    img = resizeToPowerOf2(imageFileName)
+def modeOne(image_file_name):
+    img = resizeToPowerOf2(image_file_name)
     X = np.fft.fft2(img)
 
     fig, ax = plt.subplots(1, 2)
@@ -100,15 +101,25 @@ def modeOne(imageFileName):
 
     plt.show()
 
+def maskFrequencies(X, above=True, mask_thresh=LOW_FREQUENCY_PROPORTION): # mask higher: X, True, 0.1
+    if above:
+        rows, cols = X_copy.shape
+        X[int(rows * (1 - mask_thresh)):int(rows * mask_thresh)] = 0
+        X[:,int(cols * (1 - mask_thresh)):int(cols * mask_thresh)] = 0
+        return X
+    else:
+        pass # idk
 
-def modeTwo(imageFileName):
-    mask_thresh = 0.9
-    img = resizeToPowerOf2(imageFileName)
+
+def modeTwo(image_file_name):
+    mask_thresh = 1 - LOW_FREQUENCY_PROPORTION
+    img = resizeToPowerOf2(image_file_name)
     X = np.fft.fft2(img)
-    rows, cols = X.shape
+    rows, cols = X_copy.shape
     X[int(rows * (1 - mask_thresh)):int(rows * mask_thresh)] = 0
     X[:,int(cols * (1 - mask_thresh)):int(cols * mask_thresh)] = 0
-    x = np.fft.ifft2(X)
+    # optionally use maskFrequencies with a copy of X
+    x = np.fft.ifft2(X_lowest_frequencies_only)
 
     fig, ax = plt.subplots(1, 2)
     ax[0].imshow(img, cmap='gray', vmin=0, vmax=255)
@@ -121,7 +132,7 @@ def modeTwo(imageFileName):
 
 def saveComplexMatrixAsMinimizedTxt(fileName, array, delimiter=' '):
     """
-    Save complex matrix to txt file with the same formatting as np.savetxt, but with complex exponentials equal to 0 (i.e. real and imaginary part are 0) written as a simple '0' to minimize file size.
+    Save complex matrix to txt file with the same formatting as np.savetxt, but with complex exponentials equal to 0 (i.e. real and imaginary part are 0) written as a compact '0' to minimize file size.
     
     e.g. '(0.000000000000000000e+00+0.000000000000000000e+00j)' -> '0'
     """
@@ -132,23 +143,36 @@ def saveComplexMatrixAsMinimizedTxt(fileName, array, delimiter=' '):
             f.write(line + '\n')
 
 
-def modeThree(imageFileName):
-    max_compression = 95
-    img = resizeToPowerOf2(imageFileName)
+class CompressionStrategy():
+    Largest = 0
+    Extremes = 1
+
+def modeThree(image_file_name, compression_strategy=CompressionStrategy.Largest): #, compression_strategy):
+    if compression_strategy not in (0,1):
+        raise IllegalArgumentError("Compression strategy must be one of 'Largest' (0) or 'Extremes' (1)")
+
+    max_compression = 99
+    img = resizeToPowerOf2(image_file_name)
     X = np.fft.fft2(img)
-    X_sorted = np.sort(np.abs(X.reshape(-1))) # flatten the fourier transform, then sort by magnitude (see https://numpy.org/doc/stable/reference/generated/numpy.absolute.html)
-    coefficient_count = len(X_sorted)
+    X_sorted_magnitudes = np.sort(np.abs(X.reshape(-1))) # flatten the fourier transform, then sort by magnitude (see https://numpy.org/doc/stable/reference/generated/numpy.absolute.html)
+    coefficient_count = len(X_sorted_magnitudes)
 
     fig, ax = plt.subplots(2, 3)
     for i, compression_level in enumerate(np.linspace(0, max_compression, num=6, dtype=np.int_)):  
-        threshold = X_sorted[int(compression_level * coefficient_count / 100)]
+        threshold = X_sorted_magnitudes[int(compression_level * coefficient_count / 100)]
         mask = np.abs(X) >= threshold # matrix with the same shape as X with 1s where the magnitude of the coefficients are >= threshold and 0s elsewhere 
-        compressed_X = mask * X # mask the coefficents with magnitudes < threshold
+        X_largest_coefficients_only = mask * X # mask the coefficents with magnitudes < threshold
         
-        file_name = str(compression_level) + '%.txt'
-        saveComplexMatrixAsMinimizedTxt(file_name, compressed_X)
+        if compression_strategy == 1:
+            # re-add all lower frequencies
+            pass
 
-        compressed_image = np.abs(np.fft.ifft2(compressed_X))
+        X_compressed = X_largest_coefficients_only
+
+        file_name = str(compression_level) + '%.txt'
+        saveComplexMatrixAsMinimizedTxt(file_name, X_compressed)
+
+        compressed_image = np.abs(np.fft.ifft2(X_compressed))
 
         title = 'Original' if i == 0 else str(compression_level) + '%'
         ax[i//3, i%3].imshow(compressed_image, cmap='gray', vmin=0, vmax=255)
@@ -156,7 +180,7 @@ def modeThree(imageFileName):
 
         size = os.stat(file_name)
         print(
-            'Compression (%): {compression_level} | Non-Zero Values: {values} | File Size (bytes): {size}'.format(
+            'Compression: {compression_level}% | Non-Zero Values: {values} | File Size (bytes): {size}'.format(
                 compression_level=compression_level,
                 values=(100 - compression_level) * coefficient_count,
                 size=size.st_size
@@ -254,22 +278,25 @@ def getParams():
 
 def main():
     mode = 0
-    imageFileName = ""
+    image_file_name = ""
     try:
         params = getParams()
         mode = params["mode"]
-        imageFileName = params["image"]
+        image_file_name = params["image"]
     except IllegalArgumentError as e:
         printError(str(e))
     
     print("Mode " + str(mode) + "\n")
 
     if mode ==  1:
-        modeOne(imageFileName)
+        modeOne(image_file_name)
     elif mode == 2:
-        modeTwo(imageFileName)
+        modeTwo(image_file_name)
     elif mode == 3:
-        modeThree(imageFileName)
+        try:
+            modeThree(image_file_name)
+        except IllegalArgumentError as e:
+            printError(str(e))
     elif mode == 4:
         modeFour()
 
