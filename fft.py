@@ -1,3 +1,5 @@
+import sys
+
 import numpy as np
 import argparse
 import time
@@ -160,8 +162,7 @@ class CompressionStrategy(): # enum
     LargestAll = 0 # threshold the coefficients’ magnitude and take only the largest percentile of them
     AllLowsAndLargestHighs = 1 # keep all the coefficients of very low frequencies as well as a fraction of the largest coefficients from higher frequencies to also filter the image at the same time
 
-def modeThree(image_file_name, compression_strategy=CompressionStrategy.AllLowsAndLargestHighs): #, compression_strategy):
-
+def modeThree(image_file_name, compression_strategy=CompressionStrategy.LargestAll): #, compression_strategy):
     if compression_strategy == 0:
         print('Compression Strategy: LargestAll')
     elif compression_strategy == 1:
@@ -180,11 +181,13 @@ def modeThree(image_file_name, compression_strategy=CompressionStrategy.AllLowsA
         # filter out low frequencies and flatten matrix
         high_coefficients = maskFrequencies(np.array(X), above=False).reshape(-1)
         # remove filtered (zeroed-out elements)
-        high_coefficients[high_coefficients != 0]
+        high_coefficients = np.extract(high_coefficients != 0, high_coefficients)
+        print(np.count_nonzero(high_coefficients))
         # sort by magnitude
         sorted_coefficients = np.sort(np.abs(high_coefficients))
 
     coefficient_count = len(sorted_coefficients)
+    print(coefficient_count)
 
     fig, ax = plt.subplots(2, 3)
     for i, compression_level in enumerate(np.linspace(0, max_compression, num=6, dtype=np.int_)):  
