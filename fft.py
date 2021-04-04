@@ -16,6 +16,12 @@ class IllegalArgumentError(ValueError):
     pass
 
 
+def isPowerOf2(n):
+    if (n == 0): return True
+    if (n < 0): return False
+    return math.log2(n).is_integer()
+
+
 def naiveFourierTransform(array, inverse=False):
     complex_part = 2j if inverse else -2j
     divide = len(array) if inverse else 1
@@ -32,12 +38,19 @@ def odds(array): return array[1::2]
 
 
 def fastFourierTransform(array, inverse=False):
+    if not isPowerOf2(len(array)):
+        raise IllegalArgumentError("Input vector size must be a power of 2")
+
+    return _aux(array, inverse)
+
+
+def _aux(array, inverse):
     sub_problem_thresh = 2
     if len(array) <= sub_problem_thresh:
         return naiveFourierTransform(array)
 
-    X_even = fastFourierTransform(evens(array), inverse)
-    X_odds = fastFourierTransform(odds(array), inverse)
+    X_even = _aux(evens(array), inverse)
+    X_odds = _aux(odds(array), inverse)
 
     N = len(array)
 
@@ -64,6 +77,10 @@ def naiveFourierTransformMatrix(matrix, inverse=False):
 
 def fastFourierTransformMatrix(matrix, inverse=False):
     matrix = np.array(matrix)
+    row, col = matrix.shape
+    if not isPowerOf2(row) or not isPowerOf2(col):
+        raise IllegalArgumentError("Input matrix sizes must be powers of 2")
+
     row_result = np.array([
         fastFourierTransform(row, inverse)
         for row in matrix
