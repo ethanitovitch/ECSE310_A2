@@ -91,9 +91,7 @@ def naiveFourierTransform_InverseTransformAnyArray_CloseToActual(array):
 def fastFourierTransform_InverseTransformPowerOf2SizedArray_CloseToActual(array):
     assert fft.isPowerOf2(len(array))
     X = fft.fastFourierTransform(array, inverse=True)
-    print("good")
     assert compareArrays(X, np.fft.ifft(array))
-    print("same arrays")
 
 
 def fastFourierTransform_InverseTransformNonPowerOf2SizedArray_ErrorRaised(array):
