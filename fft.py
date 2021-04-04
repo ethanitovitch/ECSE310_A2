@@ -101,25 +101,38 @@ def modeOne(image_file_name):
 
     plt.show()
 
-def maskFrequencies(X, above=True, mask_thresh=LOW_FREQUENCY_PROPORTION): # mask higher: X, True, 0.1
+def maskFrequencies(X, above=True, mask_thresh=1-LOW_FREQUENCY_PROPORTION): # mask higher: X, True, 0.1
+    rows, cols = X.shape
     if above:
-        rows, cols = X_copy.shape
-        X[int(rows * (1 - mask_thresh)):int(rows * mask_thresh)] = 0
-        X[:,int(cols * (1 - mask_thresh)):int(cols * mask_thresh)] = 0
-        return X
+        X[math.floor(rows * (1 - mask_thresh)):math.ceil(rows * mask_thresh)] = 0
+        X[:, math.floor(cols * (1 - mask_thresh)):math.ceil(cols * mask_thresh)] = 0
     else:
-        pass # idk
+        X[0:math.floor(rows * (1 - mask_thresh))] = 0
+        X[math.ceil(rows * mask_thresh):] = 0
+        X[:, 0:math.floor(cols * (1 - mask_thresh))] = 0
+        X[:, math.ceil(cols * mask_thresh):] = 0
+    return X
+
+# a = np.random.randint(low=1, high=10, size=(32,32))
+# print(a)
+# print(a.shape)
+# for row in a:
+#     print(row)
+# masked = maskFrequencies(np.array(a).copy(), above=True)
+# print("\n\n")
+# for row in masked:
+#     print(row)
+#
+# print(masked.ravel()[masked.ravel() != 0])
 
 
 def modeTwo(image_file_name):
     mask_thresh = 1 - LOW_FREQUENCY_PROPORTION
     img = resizeToPowerOf2(image_file_name)
     X = np.fft.fft2(img)
-    rows, cols = X_copy.shape
-    X[int(rows * (1 - mask_thresh)):int(rows * mask_thresh)] = 0
-    X[:,int(cols * (1 - mask_thresh)):int(cols * mask_thresh)] = 0
+    maskFrequencies(X, above=True)
     # optionally use maskFrequencies with a copy of X
-    x = np.fft.ifft2(X_lowest_frequencies_only)
+    x = np.fft.ifft2(X)
 
     fig, ax = plt.subplots(1, 2)
     ax[0].imshow(img, cmap='gray', vmin=0, vmax=255)
@@ -143,36 +156,53 @@ def saveComplexMatrixAsMinimizedTxt(fileName, array, delimiter=' '):
             f.write(line + '\n')
 
 
-class CompressionStrategy():
-    Largest = 0
-    Extremes = 1
+class CompressionStrategy(): # enum
+    LargestAll = 0 # threshold the coefficients’ magnitude and take only the largest percentile of them
+    AllLowsAndLargestHighs = 1 # keep all the coefficients of very low frequencies as well as a fraction of the largest coefficients from higher frequencies to also filter the image at the same time
 
-def modeThree(image_file_name, compression_strategy=CompressionStrategy.Largest): #, compression_strategy):
-    if compression_strategy not in (0,1):
-        raise IllegalArgumentError("Compression strategy must be one of 'Largest' (0) or 'Extremes' (1)")
+def modeThree(image_file_name, compression_strategy=CompressionStrategy.AllLowsAndLargestHighs): #, compression_strategy):
+
+    if compression_strategy == 0:
+        print('Compression Strategy: LargestAll')
+    elif compression_strategy == 1:
+        print('Compression Strategy: AllLowsAndLargestHighs')
+    else:
+        raise IllegalArgumentError("Compression strategy must be one of 'LargestAll' (0) or 'AllLowsAndLargestHighs' (1)")
 
     max_compression = 99
     img = resizeToPowerOf2(image_file_name)
     X = np.fft.fft2(img)
-    X_sorted_magnitudes = np.sort(np.abs(X.reshape(-1))) # flatten the fourier transform, then sort by magnitude (see https://numpy.org/doc/stable/reference/generated/numpy.absolute.html)
-    coefficient_count = len(X_sorted_magnitudes)
+
+    if compression_strategy == 0:
+        # flatten then sort by magnitude (see https://numpy.org/doc/stable/reference/generated/numpy.absolute.html)
+        sorted_coefficients = np.sort(np.abs(X.reshape(-1)))
+    elif compression_strategy == 1:
+        # filter out low frequencies and flatten matrix
+        high_coefficients = maskFrequencies(np.array(X), above=False).reshape(-1)
+        # remove filtered (zeroed-out elements)
+        high_coefficients[high_coefficients != 0]
+        # sort by magnitude
+        sorted_coefficients = np.sort(np.abs(high_coefficients))
+
+    coefficient_count = len(sorted_coefficients)
 
     fig, ax = plt.subplots(2, 3)
     for i, compression_level in enumerate(np.linspace(0, max_compression, num=6, dtype=np.int_)):  
-        threshold = X_sorted_magnitudes[int(compression_level * coefficient_count / 100)]
-        mask = np.abs(X) >= threshold # matrix with the same shape as X with 1s where the magnitude of the coefficients are >= threshold and 0s elsewhere 
-        X_largest_coefficients_only = mask * X # mask the coefficents with magnitudes < threshold
-        
-        if compression_strategy == 1:
-            # re-add all lower frequencies
-            pass
+        threshold = sorted_coefficients[int(compression_level * coefficient_count / 100)]
 
-        X_compressed = X_largest_coefficients_only
+        mask = np.abs(X) >= threshold # matrix with the same shape as X with 1s where the magnitude of the coefficients are >= threshold and 0s elsewhere 
+        X_largest_coefficients = mask * X # mask the coefficients with magnitudes < threshold
+        
+        if compression_strategy == 0:
+            compressed_X = X_largest_coefficients
+        elif compression_strategy == 1:
+            X_low_frequencies = maskFrequencies(np.array(X))
+            compressed_X = np.where(X_low_frequencies != 0, X_low_frequencies, X_largest_coefficients)
 
         file_name = str(compression_level) + '%.txt'
-        saveComplexMatrixAsMinimizedTxt(file_name, X_compressed)
+        saveComplexMatrixAsMinimizedTxt(file_name, compressed_X)
 
-        compressed_image = np.abs(np.fft.ifft2(X_compressed))
+        compressed_image = np.abs(np.fft.ifft2(compressed_X))
 
         title = 'Original' if i == 0 else str(compression_level) + '%'
         ax[i//3, i%3].imshow(compressed_image, cmap='gray', vmin=0, vmax=255)
