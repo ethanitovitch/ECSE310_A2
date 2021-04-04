@@ -220,7 +220,7 @@ def modeThree(image_file_name, compression_strategy=CompressionStrategy.LargestA
 def modeFour():
     EXPERIMENTS = 10
     MIN_PROBLEM_SIZE_POWER = 5
-    max_problem_size_power = 8  # 2^7 takes ~10s
+    max_problem_size_power = 7  # 2^7 takes ~10s
     data = {}
     total_start = time.perf_counter()
     for i in range(MIN_PROBLEM_SIZE_POWER, max_problem_size_power):
@@ -241,7 +241,7 @@ def modeFour():
             data[size]["fast"].append(end - start)
 
     total_end = time.perf_counter()
-    print("took " + total_end - total_start + "s")
+    print("finished experiments in {}s\n".format(total_end - total_start))
 
     sorted_sizes = sorted(data.keys())
 
