@@ -267,7 +267,7 @@ def modeFour():
                        capsize=capsize)
 
     ax.set_title("Runtimes by problem size for naïve and fast Fourier transform")
-    ax.set_xlabel("Problem size")
+    ax.set_xlabel("Problem size (NxN)")
     ax.set_ylabel("Runtime (s)")
     ax.legend()
     ax.set_xticks(x)
