@@ -7,7 +7,6 @@ import cv2
 import math
 import os
 
-
 DEFAULT_MODE = 1
 DEFAULT_IMAGE_FILE_NAME = 'moonlanding.png'
 LOW_FREQUENCY_PROPORTION = 0.1  # the lowest 10% of frequencies are considered "low"
@@ -33,7 +32,7 @@ def odds(array): return array[1::2]
 
 
 def fastFourierTransform(array, inverse=False):
-    sub_problem_thresh = 5
+    sub_problem_thresh = 2
     if len(array) <= sub_problem_thresh:
         return naiveFourierTransform(array)
 
@@ -139,7 +138,7 @@ def modeTwo(image_file_name):
 def saveMatrixAsMinimizedTxt(file_name, array, delimiter=' '):
     """
     Save complex matrix to txt file with the elements in the same formatting as np.savetxt, but with complex numbers with value equal to 0 (i.e. real and imaginary part are 0) written as a compact '0' to minimize file size.
-    
+
     e.g. '(0.000000000000000000e+00+0.000000000000000000e+00j)' -> '0'
     """
 
@@ -220,10 +219,11 @@ def modeThree(image_file_name, compression_strategy=CompressionStrategy.LargestA
 
 def modeFour():
     EXPERIMENTS = 10
-    MAX_MATRIX_SIZE_POWER = 6  # 2^7 takes ~10s
+    MIN_PROBLEM_SIZE_POWER = 5
+    max_problem_size_power = 8  # 2^7 takes ~10s
     data = {}
-
-    for i in range(MAX_MATRIX_SIZE_POWER):
+    total_start = time.perf_counter()
+    for i in range(MIN_PROBLEM_SIZE_POWER, max_problem_size_power):
         size = 2 ** i
         data[size] = {"naive": [], "fast": []}
 
@@ -240,15 +240,18 @@ def modeFour():
             end = time.perf_counter()
             data[size]["fast"].append(end - start)
 
+    total_end = time.perf_counter()
+    print("took " + total_end - total_start + "s")
+
     sorted_sizes = sorted(data.keys())
 
     naive_means = [np.mean(data[size]["naive"]) for size in sorted_sizes]
     fast_means = [np.mean(data[size]["fast"]) for size in sorted_sizes]
 
-    naive_errors = [2 * np.std(data[size]["naive"]) for size in sorted_sizes]
-    fast_errors = [2 * np.std(data[size]["fast"]) for size in sorted_sizes]
+    naive_stds = [np.std(data[size]["naive"]) for size in sorted_sizes]
+    fast_stds = [np.std(data[size]["fast"]) for size in sorted_sizes]
 
-    print("Experiments per problem size: {}\nConfidence Interval: {}%".format(EXPERIMENTS, 97))
+    print("Experiments per problem size: {}\nConfidence Interval: {}%\n".format(EXPERIMENTS, 97))
 
     # plot
     labels = sorted_sizes
@@ -258,8 +261,10 @@ def modeFour():
 
     width = 0.35  # the width of the bars
     capsize = 5
-    naive_bars = ax.bar(x - width / 2, naive_means, yerr=naive_errors, width=width, label="Naïve", capsize=capsize)
-    fast_bars = ax.bar(x + width / 2, fast_means, yerr=fast_errors, width=width, label="Fast", capsize=capsize)
+    naive_bars = ax.bar(x - width / 2, naive_means, yerr=[2 * std for std in naive_stds], width=width, label="Naïve",
+                        capsize=capsize)
+    fast_bars = ax.bar(x + width / 2, fast_means, yerr=[2 * std for std in fast_stds], width=width, label="Fast",
+                       capsize=capsize)
 
     ax.set_title("Runtimes by problem size for naïve and fast Fourier transform")
     ax.set_xlabel("Problem size")
@@ -272,6 +277,13 @@ def modeFour():
     # ax.bar_label(fast_bars, padding=3)
 
     fig.tight_layout()
+
+    for i, size in enumerate(sorted_sizes):
+        print("Problem size: {}x{}".format(size, size))
+        print("Naive: mean={}, variance={}".format(naive_means[i], naive_stds[i]))
+        print("Fast: mean={}, variance={}".format(fast_means[i], fast_stds[i]))
+        print()
+
     plt.show()
 
 
