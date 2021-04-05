@@ -41,26 +41,29 @@ def fastFourierTransform(array, inverse=False):
     if not isPowerOf2(len(array)):
         raise IllegalArgumentError("Input vector size must be a power of 2")
 
-    return _aux(array, inverse)
+    if (inverse):
+        N = len(array)
+        return np.conjugate(np.array(_aux(np.conjugate(array))) / N)
+    else:
+        return _aux(array)
 
 
-def _aux(array, inverse):
+def _aux(array):
     sub_problem_thresh = 2
     if len(array) <= sub_problem_thresh:
-        return naiveFourierTransform(array)
+        return naiveFourierTransform(array, inverse=False)
 
-    X_even = _aux(evens(array), inverse)
-    X_odds = _aux(odds(array), inverse)
+    X_even = _aux(evens(array))
+    X_odds = _aux(odds(array))
 
     N = len(array)
 
-    complex_part = 2j if inverse else -2j
-    divide = N if inverse else 1
+    complex_part = -2j
 
     factor = lambda m: np.exp(complex_part * np.pi * m / N)
 
-    return [divide * X_even[m] + divide * factor(m) * X_odds[m] for m in range(N // 2)] + [
-        divide * X_even[m] - divide * factor(m) * X_odds[m] for m in range(N // 2)]
+    return [X_even[m] + factor(m) * X_odds[m] for m in range(N // 2)] + [
+        X_even[m] - factor(m) * X_odds[m] for m in range(N // 2)]
 
 
 def naiveFourierTransformMatrix(matrix, inverse=False):
@@ -110,7 +113,7 @@ def resizeToPowerOf2(image_file_name):
 
 def modeOne(image_file_name):
     img = resizeToPowerOf2(image_file_name)
-    X = np.fft.fft2(img)
+    X = fastFourierTransformMatrix(img)
 
     fig, ax = plt.subplots(1, 2)
     ax[0].imshow(img, cmap='gray', vmin=0, vmax=255)
@@ -136,12 +139,10 @@ def maskFrequencies(X, above=True, mask_thresh=1 - LOW_FREQUENCY_PROPORTION):  #
 
 
 def modeTwo(image_file_name):
-    mask_thresh = 1 - LOW_FREQUENCY_PROPORTION
     img = resizeToPowerOf2(image_file_name)
-    X = np.fft.fft2(img)
+    X = fastFourierTransformMatrix(img)
     maskFrequencies(X, above=True)
-    # optionally use maskFrequencies with a copy of X
-    x = np.fft.ifft2(X)
+    x = fastFourierTransformMatrix(X, inverse=True)
 
     fig, ax = plt.subplots(1, 2)
     ax[0].imshow(img, cmap='gray', vmin=0, vmax=255)
@@ -181,9 +182,9 @@ def modeThree(image_file_name, compression_strategy=CompressionStrategy.LargestA
         raise IllegalArgumentError(
             "Compression strategy must be one of 'LargestAll' (0) or 'AllLowsAndLargestHighs' (1)")
 
-    max_compression = 99
+    max_compression = 95
     img = resizeToPowerOf2(image_file_name)
-    X = np.fft.fft2(img)
+    X = fastFourierTransformMatrix(img)
 
     if compression_strategy == 0:
         # flatten then sort by magnitude (see https://numpy.org/doc/stable/reference/generated/numpy.absolute.html)
@@ -193,12 +194,10 @@ def modeThree(image_file_name, compression_strategy=CompressionStrategy.LargestA
         high_coefficients = maskFrequencies(np.array(X), above=False).reshape(-1)
         # remove filtered (zeroed-out elements)
         high_coefficients = np.extract(high_coefficients != 0, high_coefficients)
-        print(np.count_nonzero(high_coefficients))
         # sort by magnitude
         sorted_coefficients = np.sort(np.abs(high_coefficients))
 
     coefficient_count = len(sorted_coefficients)
-    print(coefficient_count)
 
     fig, ax = plt.subplots(2, 3)
     for i, compression_level in enumerate(np.linspace(0, max_compression, num=6, dtype=np.int_)):
@@ -217,7 +216,7 @@ def modeThree(image_file_name, compression_strategy=CompressionStrategy.LargestA
         file_name = str(compression_level) + '%.txt'
         saveMatrixAsMinimizedTxt(file_name, compressed_X)
 
-        compressed_image = np.abs(np.fft.ifft2(compressed_X))
+        compressed_image = np.abs(fastFourierTransformMatrix(compressed_X, inverse=True))
 
         title = 'Original' if i == 0 else str(compression_level) + '%'
         ax[i // 3, i % 3].imshow(compressed_image, cmap='gray', vmin=0, vmax=255)
@@ -336,9 +335,6 @@ def getParams():
 
 
 def main():
-    mode = 0
-    image_file_name = ""
-
     try:
         params = getParams()
         mode = params["mode"]
@@ -346,15 +342,13 @@ def main():
     except IllegalArgumentError as e:
         printError(str(e))
 
-    print("Mode " + str(mode) + "\n")
-
     if mode == 1:
         modeOne(image_file_name)
     elif mode == 2:
         modeTwo(image_file_name)
     elif mode == 3:
         try:
-            modeThree(image_file_name)
+            modeThree(image_file_name, CompressionStrategy.LargestAll)
         except IllegalArgumentError as e:
             printError(str(e))
     elif mode == 4:
