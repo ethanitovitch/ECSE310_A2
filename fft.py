@@ -113,7 +113,7 @@ def resizeToPowerOf2(image_file_name):
 
 def modeOne(image_file_name):
     img = resizeToPowerOf2(image_file_name)
-    X = np.fft.fft2(img)
+    X = fastFourierTransformMatrix(img)
 
     fig, ax = plt.subplots(1, 2)
     ax[0].imshow(img, cmap='gray', vmin=0, vmax=255)
@@ -140,7 +140,7 @@ def maskFrequencies(X, above=True, mask_thresh=1 - LOW_FREQUENCY_PROPORTION):  #
 
 def modeTwo(image_file_name):
     img = resizeToPowerOf2(image_file_name)
-    X = np.fft.fft2(img)
+    X = fastFourierTransformMatrix(img)
     maskFrequencies(X, above=True)
     x = fastFourierTransformMatrix(X, inverse=True)
 
@@ -184,7 +184,7 @@ def modeThree(image_file_name, compression_strategy=CompressionStrategy.LargestA
 
     max_compression = 95
     img = resizeToPowerOf2(image_file_name)
-    X = np.fft.fft2(img)
+    X = fastFourierTransformMatrix(img)
 
     if compression_strategy == 0:
         # flatten then sort by magnitude (see https://numpy.org/doc/stable/reference/generated/numpy.absolute.html)
@@ -216,7 +216,7 @@ def modeThree(image_file_name, compression_strategy=CompressionStrategy.LargestA
         file_name = str(compression_level) + '%.txt'
         saveMatrixAsMinimizedTxt(file_name, compressed_X)
 
-        compressed_image = np.abs(np.fft.ifft2(compressed_X))
+        compressed_image = np.abs(fastFourierTransformMatrix(compressed_X, inverse=True))
 
         title = 'Original' if i == 0 else str(compression_level) + '%'
         ax[i // 3, i % 3].imshow(compressed_image, cmap='gray', vmin=0, vmax=255)
@@ -335,9 +335,6 @@ def getParams():
 
 
 def main():
-    mode = 0
-    image_file_name = ""
-
     try:
         params = getParams()
         mode = params["mode"]
@@ -345,15 +342,13 @@ def main():
     except IllegalArgumentError as e:
         printError(str(e))
 
-    print("Mode " + str(mode) + "\n")
-
     if mode == 1:
         modeOne(image_file_name)
     elif mode == 2:
         modeTwo(image_file_name)
     elif mode == 3:
         try:
-            modeThree(image_file_name, CompressionStrategy.AllLowsAndLargestHighs)
+            modeThree(image_file_name, CompressionStrategy.LargestAll)
         except IllegalArgumentError as e:
             printError(str(e))
     elif mode == 4:
